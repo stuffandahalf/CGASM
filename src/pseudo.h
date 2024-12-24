@@ -6,11 +6,11 @@
 struct pseudo_instruction {
 	/*char instruction[10];*/
 	char *instruction;
-	void (*process)(Line *line);
+	void (*process)(struct line *line);
 	short int args;
 };
 
-struct pseudo_instruction *get_pseudo_op(Line *line);
-void parse_pseudo_op(Line *line);
+struct pseudo_instruction *get_pseudo_op(struct line *line);
+void parse_pseudo_op(struct line *line);
 
 #endif /* GASMIC_PSEUDO_H */

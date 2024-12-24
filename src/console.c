@@ -13,12 +13,14 @@ static int init;
 static HANDLE stderr_handle;
 static DWORD stderr_mode_default;
 
-int console_is_init(void)
+int
+console_is_init(void)
 {
 	return init;
 }
 
-int init_console(void)
+int
+init_console(void)
 {
 	DWORD stderr_mode;
 
@@ -43,7 +45,8 @@ int init_console(void)
 	return 1;
 }
 
-int restore_console(void)
+int
+restore_console(void)
 {
 	if (init) {
 		fprintf(stderr, ANSI_COLOR_RESET);

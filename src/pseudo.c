@@ -49,20 +49,20 @@
  * .global
  */
 
-static void pseudo_set_file(Line *line);
-static void pseudo_set_arch(Line *line);
-static void pseudo_set_byte(Line *line);
-static void pseudo_set_word(Line *line);
-static void pseudo_set_double(Line *line);
-static void pseudo_set_quad(Line *line);
-static void pseudo_reserve_bytes(Line *line);
-static void pseudo_reserve_words(Line *line);
-static void pseudo_reserve_doubles(Line *line);
-static void pseudo_reserve_quads(Line *line);
-static void pseudo_equ(Line *line);
-static void pseudo_include(Line *line);
-static void pseudo_insert(Line *line);
-static void pseudo_org(Line *line);
+static void pseudo_set_file(struct line *line);
+static void pseudo_set_arch(struct line *line);
+static void pseudo_set_byte(struct line *line);
+static void pseudo_set_word(struct line *line);
+static void pseudo_set_double(struct line *line);
+static void pseudo_set_quad(struct line *line);
+static void pseudo_reserve_bytes(struct line *line);
+static void pseudo_reserve_words(struct line *line);
+static void pseudo_reserve_doubles(struct line *line);
+static void pseudo_reserve_quads(struct line *line);
+static void pseudo_equ(struct line *line);
+static void pseudo_include(struct line *line);
+static void pseudo_insert(struct line *line);
+static void pseudo_org(struct line *line);
 
 static struct pseudo_instruction pseudo_ops[] = {
 	{ ".ARCH",		&pseudo_set_arch,			1 },
@@ -86,7 +86,8 @@ static struct pseudo_instruction pseudo_ops[] = {
 	{ NULL,			NULL,						0 }
 };
 
-struct pseudo_instruction *get_pseudo_op(Line *line)
+struct pseudo_instruction *
+get_pseudo_op(struct line *line)
 {
 	struct pseudo_instruction *pseudo_op;
 
@@ -99,7 +100,8 @@ struct pseudo_instruction *get_pseudo_op(Line *line)
 	return NULL;
 }
 
-void parse_pseudo_op(Line *line)
+void
+parse_pseudo_op(struct line *line)
 {
 	struct pseudo_instruction *pseudo_inst = get_pseudo_op(line);
 	if (pseudo_inst == NULL) {
@@ -108,7 +110,8 @@ void parse_pseudo_op(Line *line)
 	pseudo_inst->process(line);
 }
 
-static void pseudo_set_arch(Line *line)
+static void
+pseudo_set_arch(struct line *line)
 {
 	const Architecture *arch;
 
@@ -125,7 +128,8 @@ static void pseudo_set_arch(Line *line)
 	printdf(("%s\n", g_config.arch->name));
 }
 
-static void pseudo_set_file(Line *line)
+static void
+pseudo_set_file(struct line *line)
 {
 	if (line->argv[0].type != ARG_TYPE_STRING) {
 		die("File name must be a string.");
@@ -157,10 +161,10 @@ static void pseudo_set_file(Line *line)
 	} \
 }
 
-static void pseudo_set_byte(Line *line) { pseudo_set_data(uint8_t, line); }
-static void pseudo_set_word(Line *line) { pseudo_set_data(uint16_t, line); }
-static void pseudo_set_double(Line *line) { pseudo_set_data(uint32_t, line); }
-static void pseudo_set_quad(Line *line) { pseudo_set_data(uint64_t, line); }
+static void pseudo_set_byte(struct line *line) { pseudo_set_data(uint8_t, line); }
+static void pseudo_set_word(struct line *line) { pseudo_set_data(uint16_t, line); }
+static void pseudo_set_double(struct line *line) { pseudo_set_data(uint32_t, line); }
+static void pseudo_set_quad(struct line *line) { pseudo_set_data(uint64_t, line); }
 
 #undef pseudo_set_data
 
@@ -175,14 +179,15 @@ static void pseudo_set_quad(Line *line) { pseudo_set_data(uint64_t, line); }
 	data->type = DATA_TYPE_BYTES; \
 }
 
-static void pseudo_reserve_bytes(Line *line) { pseudo_reserve_data(uint8_t, line); }
-static void pseudo_reserve_words(Line *line) { pseudo_reserve_data(uint16_t, line); }
-static void pseudo_reserve_doubles(Line *line) { pseudo_reserve_data(uint32_t, line); }
-static void pseudo_reserve_quads(Line *line) { pseudo_reserve_data(uint64_t, line); }
+static void pseudo_reserve_bytes(struct line *line) { pseudo_reserve_data(uint8_t, line); }
+static void pseudo_reserve_words(struct line *line) { pseudo_reserve_data(uint16_t, line); }
+static void pseudo_reserve_doubles(struct line *line) { pseudo_reserve_data(uint32_t, line); }
+static void pseudo_reserve_quads(struct line *line) { pseudo_reserve_data(uint64_t, line); }
 
 #undef pseudo_reserve_data
 
-static void pseudo_equ(Line *line)
+static void
+pseudo_equ(struct line *line)
 {
 	char *num_end;
 
@@ -194,17 +199,17 @@ static void pseudo_equ(Line *line)
 	}
 
 	/* TODO: replace this with rpn arithmetic parsing */
-	symtab->last->value = strtol(line->argv[0].val.str, &num_end, 0);
+	symtab.last->value = strtol(line->argv[0].val.str, &num_end, 0);
 	/*if (line->argv[0] == num_end) {*/
 	if (*num_end != '\0') {
 		fail("Failed to parse given value.\n");
 	}
 }
 
-static void pseudo_include(Line *line)
+static void
+pseudo_include(struct line *line)
 {
 	struct context included_context;
-	Line *inc_line;
 
 	if (line->argv[0].type != ARG_TYPE_STRING) {
 		fail("File name is not a string. Did you forget to surround the file name in quotes?\n");
@@ -222,14 +227,12 @@ static void pseudo_include(Line *line)
 		fail("Failed to open included file \"%s\".\n", included_context.fname);
 	}
 
-	inc_line = salloc(sizeof(Line));
 	g_context = &included_context;
 
-	assemble(inc_line);
+	assemble(&included_context);
 	fclose(included_context.fptr);
 
 	g_context = g_context->parent;
-	sfree(inc_line);
 	sfree(included_context.fname);
 
 	/* need to reassign argv because assemble frees it but we return back to assemble. */
@@ -240,7 +243,8 @@ static void pseudo_include(Line *line)
 /*
  * Inserts the raw bytes of this file into the resulting binary
  */
-static void pseudo_insert(Line *line)
+static void
+pseudo_insert(struct line *line)
 {
 	Data *file_data;
 #if defined(GASMIC_HAVE_POSIX_FILE_IO)
@@ -306,7 +310,8 @@ static void pseudo_insert(Line *line)
 	printdf(("Inserted fname is %s\n", line->argv[0].val.str));
 }
 
-static void pseudo_org(Line *line)
+static void
+pseudo_org(struct line *line)
 {
 	char *lend;
 	size_t new_address = strtoul(line->argv[0].val.str, &lend, 0) & address_mask;

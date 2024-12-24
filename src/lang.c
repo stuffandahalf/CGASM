@@ -6,7 +6,8 @@
 
 #include "lang.h"
 
-int printef(const char *fmt, ...)
+int
+printef(const char *fmt, ...)
 {
 	int c;
 	va_list args;
@@ -19,7 +20,8 @@ int printef(const char *fmt, ...)
 	return c;
 }
 
-long fsize(FILE *fptr)
+long
+fsize(FILE *fptr)
 {
 	long current_pos;
 	long size;
@@ -33,7 +35,8 @@ long fsize(FILE *fptr)
 	return size;
 }
 
-char *str_clone(const char *src)
+char *
+str_clone(const char *src)
 {
 	char *new_ptr = malloc(sizeof(char) * (strlen(src) + 1));
 	if (new_ptr == NULL) {
@@ -43,7 +46,8 @@ char *str_clone(const char *src)
 	return new_ptr;
 }
 
-char *str_to_upper(char *str)
+char *
+str_to_upper(char *str)
 {
 	char *c = NULL;
 	for (c = str; *c != '\0'; c++) {
@@ -52,7 +56,8 @@ char *str_to_upper(char *str)
 	return str;
 }
 
-char *str_trim(char *str)
+char *
+str_trim(char *str)
 {
 	int done = 0;
 	char *c;

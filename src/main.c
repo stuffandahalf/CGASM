@@ -17,28 +17,30 @@ char buffer[LINEBUFFERSIZE];
 
 static int configure(int argc, char *const argv[]);
 /*static void trim_str(char str[]);*/
-static void parse_line(Line *l, char *buffer);
-static void resolve_mnemonic_type(Line *l);
+static void parse_line(struct line *l, char *buffer);
+static void evaluate_args(struct line *l);
+static void resolve_mnemonic_type(struct line *l);
 static void set_syntax_parser();
-static void prepare_line_motorola(Line *l);
-static void prepare_line_att(Line *l);
-static void prepare_line_intel(Line *l);
+static void prepare_line_motorola(struct line *l);
+static void prepare_line_att(struct line *l);
+static void prepare_line_intel(struct line *l);
 
 struct configuration g_config;
 struct context *g_context;
 
 /*FILE *in;*/
 FILE *out;
-size_t address;
+size_t address = 0;
 size_t address_mask;	/* bits to mask the address to;*/
-void (*parse_instruction)(Line *l);
+void (*parse_instruction)(struct line *l);
 /*SymTab *undefined_symtab;*/
 
 #define TARGET(t) &ARCH_ ## t,
 Architecture **architectures[] = { TARGETS NULL };  /* NULL terminated array of targets */
 #undef TARGET
 
-int main(int argc, char *const argv[])
+int
+main(int argc, char *const argv[])
 {
 #if 0
 	//struct token *rpn_expr = parse_expression("1 *(2 +3)");
@@ -52,9 +54,8 @@ int main(int argc, char *const argv[])
 
 	size_t i;
 	struct context init_cntxt;
-	Line *l;
-	Symbol *sym, *tmp_sym;
-	Data *data, *tmp_data;
+	struct symbol *sym, *tmp_sym;
+	//Data *data, *tmp_data;
 
 #ifdef _WIN32
 	if (!init_console()) {
@@ -65,12 +66,6 @@ int main(int argc, char *const argv[])
 
 	/*FILE *in;*/
 	/*out = stdout;*/
-	g_config.arch = *architectures[0];
-	g_config.in_fnames = NULL;
-	g_config.in_fnamec = 0;
-	g_config.syntax = g_config.arch->default_syntax;
-	g_config.out_fname = "a.out";
-	address = 0;
 
 	if (!configure(argc, argv)) {
 		goto early_exit;
@@ -78,7 +73,7 @@ int main(int argc, char *const argv[])
 
 	/*out = fopen(out_fname, "w+");*/
 	/*free(g_config.out_fname);*/
-	g_config.out_fname = NULL;
+	
 
 	/*struct context init_cntxt;*/
 	g_context = &init_cntxt;
@@ -89,9 +84,6 @@ int main(int argc, char *const argv[])
 	set_syntax_parser();
 
 	init_data_table();
-	init_symbol_table();
-
-	l = salloc(sizeof(Line));
 
 	if (g_config.in_fnamec < 0) {
 		die("Invalid number of command line arguments.\n");
@@ -100,7 +92,7 @@ int main(int argc, char *const argv[])
 			die("Failed to duplicate file name \"stdin\"\n");
 		}
 		init_cntxt.fptr = stdin;
-		assemble(l);
+		assemble(&init_cntxt);
 		sfree(init_cntxt.fname);
 	} else {
 		for (i = 0; i < g_config.in_fnamec; i++) {
@@ -111,7 +103,7 @@ int main(int argc, char *const argv[])
 				die("Failed to open input file %s\n", g_config.in_fnames[i]);
 			}
 			init_cntxt.line_num = 1;
-			assemble(l);
+			assemble(&init_cntxt);
 			fclose(init_cntxt.fptr);
 			sfree(init_cntxt.fname);
 		}
@@ -120,10 +112,10 @@ int main(int argc, char *const argv[])
 	g_config.in_fnames = NULL;
 	g_config.in_fnamec = 0;
 	g_config.in_fname_size = 0;
-	sfree(l);
 
 	/* TODO: Resolve references here */
 
+#if 0
 	if (g_config.export_fname != NULL) {
 		FILE *export_file;
 
@@ -131,16 +123,17 @@ int main(int argc, char *const argv[])
 		if (export_file == NULL) {
 			die("Failed to open export file \"%s\"\n", g_config.export_fname);
 		}
-		sym = symtab->first;
+		sym = symtab.first;
 		while (sym != NULL) {
 			fprintf(export_file, "%s: EQU %" PRId64 "\n", sym->label, sym->value);
 			sym = sym->next;
 		}
 		fclose(export_file);
 	}
+#endif
 
 	printdf(("SYMBOLS\n"));
-	sym = symtab->first;
+	sym = symtab.first;
 	while (sym != NULL) {
 		printdf(("%s = %" PRId64 "\n", sym->label, sym->value));
 
@@ -151,10 +144,9 @@ int main(int argc, char *const argv[])
 		sfree(tmp_sym);
 	}
 	/*sfree(symtab->first->label)*/;
-	sfree(symtab);
-	symtab = NULL;
 	/*sym = NULL;*/
 
+#if 0
 	printdf(("DATATAB\n"));
 	data = datatab->first;
 	while (data != NULL) {
@@ -201,6 +193,7 @@ int main(int argc, char *const argv[])
 	datatab = NULL;
 	data = NULL;
 	/*close(out);*/
+#endif
 
 	g_context = NULL;
 
@@ -218,7 +211,8 @@ early_exit:
 	return 0;
 }
 
-void init_address_mask()
+void
+init_address_mask()
 {
 	int i;
 	address_mask = 0;
@@ -231,47 +225,50 @@ void init_address_mask()
 	printdf(("Address mask: " SZXFMT "\n", address_mask));
 }
 
-void assemble(Line *l)
+void
+assemble(struct context *cntxt)
 {
 	size_t i;
+	struct line l;
 
 	while (fgets(buffer, LINEBUFFERSIZE, g_context->fptr) != NULL) {
 		if (buffer[0] != '\0' && buffer[0] != '\n') {
-			l->line_state = LINE_STATE_CLEAR;
-			l->address_mode = ADDR_MODE_INVALID;
-			l->addr_mode_post_op = POST_OP_NONE;
-			l->arg_buf_size = 2;
-			/*l->argv = salloc(sizeof(char *) * l->arg_buf_size);*/
-			l->argv = salloc(sizeof(LineArg) * l->arg_buf_size);
-			l->argc = 0;
+			l.line_state = LINE_STATE_CLEAR;
+			l.address_mode = ADDR_MODE_INVALID;
+			l.addr_mode_post_op = POST_OP_NONE;
+			l.arg_buf_size = 2;
+			/*l.argv = salloc(sizeof(char *) * l.arg_buf_size);*/
+			l.argv = salloc(sizeof(LineArg) * l.arg_buf_size);
+			l.argc = 0;
 
-			parse_line(l, buffer);
+			parse_line(&l, buffer);
 
 #ifndef NDEBUG
-			/*printf("%s\t%s", l->label, l->mnemonic);*/
-			if (l->line_state & FLAG(LINE_STATE_LABEL)) {
-				printf("%s", l->label);
+			/*printf("%s\t%s", l.label, l.mnemonic);*/
+			if (l.line_state & FLAG(LINE_STATE_LABEL)) {
+				printf("%s", l.label);
 			}
-			if (l->line_state & FLAG(LINE_STATE_MNEMONIC)) {
-				if (l->line_state & FLAG(LINE_STATE_LABEL)) {
+			if (l.line_state & FLAG(LINE_STATE_MNEMONIC)) {
+				if (l.line_state & FLAG(LINE_STATE_LABEL)) {
 					puts("\t");
 				}
-				printf("%s", l->mnemonic);
+				printf("%s", l.mnemonic);
 			}
-			for (i = 0; i < l->argc; i++) {
-				printf("\t%s", l->argv[i].val.str);
+			for (i = 0; i < l.argc; i++) {
+				printf("\t%s", l.argv[i].val.str);
 			}
 			puts("");
 #endif
-			if (l->line_state & FLAG(LINE_STATE_LABEL)) {	  /* If current line has a label */
-				add_label(l);
+			if (l.line_state & FLAG(LINE_STATE_LABEL)) {	  /* If current line has a label */
+				add_label(&l);
 			}
-			if (l->line_state & FLAG(LINE_STATE_MNEMONIC)) {   /* If current line has a mnemonic */
-				str_to_upper(l->mnemonic);
-				resolve_mnemonic_type(l);
+			if (l.line_state & FLAG(LINE_STATE_MNEMONIC)) {   /* If current line has a mnemonic */
+				str_to_upper(l.mnemonic);
+				evaluate_args(&l);
+				resolve_mnemonic_type(&l);
 			}
 
-			sfree(l->argv);
+			sfree(l.argv);
 		}
 		g_context->line_num++;
 	}
@@ -280,12 +277,15 @@ void assemble(Line *l)
 	}
 }
 
-static int configure(int argc, char *const argv[])
+static int
+configure(int argc, char *const argv[])
 {
 	static const char *const help_str = "Usage: %s [-m arch] [-o outfile] [-f outformat] [-e symfile]\n";
 	int c;
 
-
+	g_config.arch = *architectures[0];
+	g_config.syntax = g_config.arch->default_syntax;
+	g_config.out_fname = "a.out";
 	g_config.in_fname_size = 1;
 	g_config.in_fnamec = 0;
 	g_config.in_fnames = salloc(sizeof(char *) * g_config.in_fname_size);
@@ -335,7 +335,8 @@ static int configure(int argc, char *const argv[])
 	return 1;
 }
 
-static void parse_line(Line *l, char *buffer)
+static void
+parse_line(struct line *l, char *buffer)
 {
 	register char *c;
 	LineArg *la = NULL;
@@ -483,7 +484,17 @@ static void parse_line(Line *l, char *buffer)
 	}
 }
 
-static void resolve_mnemonic_type(Line *line)
+static void
+evaluate_args(struct line *l)
+{
+	int i;
+	for (i = 0; i < l->argc; i++) {
+		printef("%s\t", l->argv[i].val.str);
+	}
+}
+
+static void
+resolve_mnemonic_type(struct line *line)
 {
 	struct pseudo_instruction *pseudo_op;
 
@@ -501,7 +512,8 @@ static void resolve_mnemonic_type(Line *line)
 	}
 }
 
-static INLINE const struct instruction_register *instruction_supports_reg(const Instruction *instruction, const Register *reg)
+static INLINE const struct instruction_register *
+instruction_supports_reg(const Instruction *instruction, const Register *reg)
 {
 	const struct instruction_register *ir;
 	for (ir = instruction->opcodes; ir->reg != NULL; ir++) {
@@ -512,7 +524,8 @@ static INLINE const struct instruction_register *instruction_supports_reg(const 
 	return NULL;
 }
 
-static void set_syntax_parser()
+static void
+set_syntax_parser()
 {
 	switch (g_config.syntax) {
 	case SYNTAX_MOTOROLA:
@@ -531,7 +544,8 @@ static void set_syntax_parser()
 	}
 }
 
-static void prepare_line_motorola(Line *l)
+static void
+prepare_line_motorola(struct line *l)
 {
 	/*const char *instr_mnem = NULL;
 	const char *line_mnemonic = NULL;
@@ -898,12 +912,14 @@ instruction_found:
 	add_data(data);
 }
 
-static void prepare_line_att(Line *l)
+static void
+prepare_line_att(struct line *l)
 {
 
 }
 
-static void prepare_line_intel(Line *l)
+static void
+prepare_line_intel(struct line *l)
 {
 
 }

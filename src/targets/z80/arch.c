@@ -51,12 +51,14 @@ static const Instruction *instructions[] = {
 	NULL
 };
 
-void Z80_process_line(Line *line, const struct instruction_register *instr_reg, Data *data)
+void
+Z80_process_line(struct line *line, const struct instruction_register *instr_reg, Data *data)
 {
 	printdf(("Hello from Z80 line processor.\n"));
 }
 
-void Z80_init(void)
+void
+Z80_init(void)
 {
 	ARCH_Z80 = salloc(sizeof(Architecture));
 	ARCH_Z80->value = Z80;
@@ -70,17 +72,20 @@ void Z80_init(void)
 	ARCH_Z80->instructions = instructions;
 	ARCH_Z80->process_line = &Z80_process_line;
 }
-void Z80_destroy(void)
+void
+Z80_destroy(void)
 {
 	sfree(ARCH_Z80);
 }
 
-void I8080_init(void)
+void
+I8080_init(void)
 {
 	fail("I8080 architecture is not ready yet.");
 	ARCH_I8080 = salloc(sizeof(Architecture));
 }
-void I8080_destroy(void)
+void
+I8080_destroy(void)
 {
 	sfree(ARCH_I8080);
 }

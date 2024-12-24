@@ -15,7 +15,8 @@ static struct {
 	struct alloced *last;
 } alloced_mem = { NULL, NULL };
 
-void release(void)
+void
+release(void)
 {
 	struct alloced *a = alloced_mem.first;
 	while (a != NULL) {
@@ -28,7 +29,8 @@ void release(void)
 	alloced_mem.last = NULL;
 }
 
-static struct alloced *find_memory(void *ptr)
+static struct alloced *
+find_memory(void *ptr)
 {
 	struct alloced *mem;
 	for (mem = alloced_mem.last; mem != NULL; mem = mem->prev) {
@@ -40,7 +42,8 @@ static struct alloced *find_memory(void *ptr)
 	return NULL; /* not reachable */
 }
 
-void smem_diagnostic(void)
+void
+smem_diagnostic(void)
 {
 	struct alloced *a = alloced_mem.first;
 	while (a != NULL) {
@@ -70,10 +73,11 @@ void *salloc(size_t size)
 	return ptr;
 }
 
+void *
 #ifdef SMEM_CPP
-void *saquire_real(void *ptr)
+saquire_real(void *ptr)
 #else
-void *saquire(void *ptr)
+saquire(void *ptr)
 #endif
 {
 	struct alloced *a;
@@ -101,10 +105,11 @@ void *saquire(void *ptr)
 	return a->address;
 }
 
+void *
 #ifdef SMEM_CPP
-void *srealloc_real(void *ptr, size_t size)
+srealloc_real(void *ptr, size_t size)
 #else
-void *srealloc(void *ptr, size_t size)
+srealloc(void *ptr, size_t size)
 #endif
 {
 	struct alloced *a = find_memory(ptr);
@@ -117,7 +122,8 @@ void *srealloc(void *ptr, size_t size)
 	return ptr;
 }
 
-void sfree(void *ptr)
+void
+sfree(void *ptr)
 {
 	struct alloced *a, *prev, *next;
 
@@ -147,7 +153,8 @@ void sfree(void *ptr)
 	free(a);
 }
 
-NORETURN void die(const char *msg, ...)
+NORETURN void
+die(const char *msg, ...)
 {
 	va_list args;
 	va_start(args, msg);

@@ -79,17 +79,17 @@ struct address {
 };
 #endif
 
-typedef struct symtab_entry {
+struct symbol {
 	char *label;
 	int64_t value;
-	struct symtab_entry *next;
-} Symbol;
+	struct symbol *next;
+};
 
-typedef struct {
-	Symbol *first;
-	Symbol *last;
-	Symbol *last_parent;
-} SymTab;
+struct symboltab{
+	struct symbol *first;
+	struct symbol *last;
+	struct symbol *last_parent;
+};
 
 enum data_type {
 	DATA_TYPE_NONE,
@@ -194,7 +194,7 @@ enum address_post_op {
 	POST_OP_DEC_DOUBLE
 };
 
-typedef struct {
+struct line {
 	char *label;
 	char *mnemonic;
 	LineArg *argv;
@@ -203,7 +203,7 @@ typedef struct {
 	enum line_state line_state;
 	enum address_mode address_mode;
 	enum address_post_op addr_mode_post_op;
-} Line;
+};
 
 typedef struct {
 	char *name;
@@ -214,7 +214,7 @@ typedef struct {
 	enum syntax default_syntax;
 	const Register *registers;
 	const Instruction **instructions;
-	void (*process_line)(Line *line, const struct instruction_register *instr_reg, Data *data);
+	void (*process_line)(struct line *line, const struct instruction_register *instr_reg, Data *data);
 } Architecture;
 
 struct configuration {
@@ -234,7 +234,7 @@ struct context {
 	size_t line_num;
 };
 
-extern SymTab *symtab;
+extern struct symboltab symtab;
 extern DataTab *datatab;
 
 extern size_t address;
@@ -243,18 +243,17 @@ extern struct configuration g_config;
 extern struct context *g_context;
 
 void init_address_mask();
-void assemble(Line *l);
+void assemble(struct context *cntxt);
 NORETURN void fail(const char *fmt, ...);
 
 const Architecture *find_arch(const char *arch_name);
 const Register *find_reg(const char *name);
 
 int init_data_table();
-int init_symbol_table();
 Data *init_data(Data *data);
-void add_label(Line *line);
+void add_label(struct line *line);
 void add_data(Data *data);
 
-void prepare_line(Line *line);
+void prepare_line(struct line *line);
 
 #endif /* GASMIC_AS_H */

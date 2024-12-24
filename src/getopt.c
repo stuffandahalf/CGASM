@@ -11,7 +11,8 @@ static unsigned int nextchar = 0;
 
 /*#define GASMIC_POSIX_COMPLIANT 1*/
 
-int getopt(int argc, char *const argv[], const char *arglist)
+int
+getopt(int argc, char *const argv[], const char *arglist)
 {
 	const char *cptr;
 	char cret;
@@ -129,7 +130,8 @@ int getopt(int argc, char *const argv[], const char *arglist)
 	return '?';
 }
 
-int getopt_long(int argc, char *const argv[],
+int
+getopt_long(int argc, char *const argv[],
 				const char *optstring,
 				const struct option *longopts, int *longindex)
 {

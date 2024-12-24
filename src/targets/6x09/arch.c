@@ -120,12 +120,14 @@ static const Instruction *instructions[] = {
 	NULL
 };
 
-static void MC6809_process_line(Line *line, const struct instruction_register *instr_reg, Data *data)
+static void
+MC6809_process_line(struct line *line, const struct instruction_register *instr_reg, Data *data)
 {
 	printdf(("Hello MC6809\n"));
 }
 
-static void HD6309_process_line(Line *line, const struct instruction_register *instr_reg, Data *data)
+static void
+HD6309_process_line(struct line *line, const struct instruction_register *instr_reg, Data *data)
 {
 	printdf(("Hello HD6309\n"));
 }
@@ -144,20 +146,24 @@ static void HD6309_process_line(Line *line, const struct instruction_register *i
 	ARCH_##arch_var->process_line = &arch_var##_process_line; \
 }
 
-void MC6809_init(void)
+void
+MC6809_init(void)
 {
 	ARCH_INIT(MC6809);
 }
-void MC6809_destroy(void)
+void
+MC6809_destroy(void)
 {
 	sfree(ARCH_MC6809);
 }
 
-void HD6309_init(void)
+void
+HD6309_init(void)
 {
 	ARCH_INIT(HD6309);
 }
-void HD6309_destroy(void)
+void
+HD6309_destroy(void)
 {
 	sfree(ARCH_HD6309);
 }

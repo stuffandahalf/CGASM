@@ -9,26 +9,18 @@
 
 extern Architecture **architectures[];
 
-SymTab *symtab;
+struct symboltab symtab = {
+	.first = NULL,
+	.last = NULL
+};
 DataTab *datatab;
-
-int init_symbol_table()
-{
-	if (symtab != NULL) {
-		return 0;
-	}
-	symtab = salloc(sizeof(SymTab));
-	symtab->first = NULL;
-	symtab->last = NULL;
-
-	return 1;
-}
 
 /*
  * Resolve a label into it's complete representation
  * returns a salloced char *.
  */
-char *resolve_label(char *symbol)
+char *
+resolve_label(char *symbol)
 {
 	size_t parent_len, local_len;
 	char *symbol_ptr;
@@ -42,16 +34,16 @@ char *resolve_label(char *symbol)
 		return complete_symbol;
 	}
 
-	if (symtab->last_parent == NULL) {
+	if (symtab.last_parent == NULL) {
 		fail("Local label cannot be defined before any non-local labels.\n");
 	}
 
-	parent_len = strlen(symtab->last_parent->label);
+	parent_len = strlen(symtab.last_parent->label);
 	local_len = strlen(symbol);
 	complete_symbol = salloc(sizeof(char) * (parent_len + local_len + 1));
 
 	symbol_ptr = complete_symbol;
-	for (c = symtab->last_parent->label; *c != '\0'; c++) {
+	for (c = symtab.last_parent->label; *c != '\0'; c++) {
 		*symbol_ptr++ = *c;
 	}
 	for (c = symbol; *c != '\0'; c++) {
@@ -64,11 +56,12 @@ char *resolve_label(char *symbol)
 }
 
 
-void add_label(Line *line)
+void
+add_label(struct line *line)
 {
-	Symbol *test_sym;
+	struct symbol *test_sym;
 
-	Symbol *sym = salloc(sizeof(Symbol));
+	struct symbol *sym = salloc(sizeof(struct symbol));
 
 	sym->next = NULL;
 	sym->label = resolve_label(line->label);
@@ -76,17 +69,17 @@ void add_label(Line *line)
 	if (line->label[0] == '.') {
 		line->label = sym->label;
 	} else {
-		symtab->last_parent = sym;
+		symtab.last_parent = sym;
 	}
 
 	/*if (line->label[0] == '.') {
-		if (symtab->last == NULL) {
+		if (symtab.last == NULL) {
 			fail("Local label cannot be defined before any non-local labels.\n");
 		}
-		sym->label = salloc(sizeof(char) * (strlen(symtab->last_parent->label) + strlen(line->label) + 1));
+		sym->label = salloc(sizeof(char) * (strlen(symtab.last_parent->label) + strlen(line->label) + 1));
 		register char *label = sym->label;
 		register char *c;
-		for (c = symtab->last_parent->label; *c != '\0'; c++) {
+		for (c = symtab.last_parent->label; *c != '\0'; c++) {
 			*(label++) = *c;
 		}
 		for (c = line->label; *c != '\0'; c++) {
@@ -98,28 +91,29 @@ void add_label(Line *line)
 	else {
 		sym->label = salloc(strlen(line->label) + sizeof(char));
 		strcpy(sym->label, line->label);
-		symtab->last_parent = sym;
+		symtab.last_parent = sym;
 	}*/
 
 	/*printdf("Parsed label = %s\n", sym->label);*/
 
 	sym->value = address;
 
-	for (test_sym = symtab->first; test_sym != NULL; test_sym = test_sym->next) {
+	for (test_sym = symtab.first; test_sym != NULL; test_sym = test_sym->next) {
 		if (streq(test_sym->label, sym->label)) {
 			fail("Symbol \"%s\" is already defined.\n", test_sym->label);
 		}
 	}
 
-	if (symtab->first == NULL) {
-		symtab->first = sym;
+	if (symtab.first == NULL) {
+		symtab.first = sym;
 	} else {
-		symtab->last->next = sym;
+		symtab.last->next = sym;
 	}
-	symtab->last = sym;
+	symtab.last = sym;
 }
 
-int init_data_table()
+int
+init_data_table()
 {
 	if (datatab != NULL) {
 		return 0;
@@ -131,7 +125,8 @@ int init_data_table()
 	return 1;
 }
 
-Data *init_data(Data *data)
+Data *
+init_data(Data *data)
 {
 	data->next = NULL;
 	data->type = DATA_TYPE_NONE;
@@ -140,7 +135,8 @@ Data *init_data(Data *data)
 	return data;
 }
 
-void add_data(Data *data)
+void
+add_data(Data *data)
 {
 	Data *next;
 
@@ -157,7 +153,8 @@ void add_data(Data *data)
 	}
 }
 
-const Architecture *find_arch(const char *arch_name)
+const Architecture *
+find_arch(const char *arch_name)
 {
 	Architecture ***a = NULL;
 	for (a = architectures; *a != NULL; a++) {
@@ -168,7 +165,8 @@ const Architecture *find_arch(const char *arch_name)
 	return NULL;
 }
 
-const Register *find_reg(const char *name)
+const Register *
+find_reg(const char *name)
 {
 	const Register *r = NULL;
 
@@ -180,7 +178,8 @@ const Register *find_reg(const char *name)
 	return NULL;
 }
 
-void prepare_line(Line *line)
+void
+prepare_line(struct line *line)
 {
 #if 1
 	size_t i;
@@ -195,7 +194,7 @@ void prepare_line(Line *line)
 			}
 			for (tok = line->argv[i].val.rpn_expr; tok != NULL; tok = tok->next) {
 				if (tok->type == TOKEN_TYPE_SYMBOL && tok->value.str[0] == '.') {
-					size_t parent_size = strlen(symtab->last_parent->label);
+					size_t parent_size = strlen(symtab.last_parent->label);
 					size_t child_size = strlen(tok->value.str);
 					char *child = tok->value.str;
 
@@ -203,7 +202,7 @@ void prepare_line(Line *line)
 					if (tok->value.str == NULL) {
 						fail("Failed to reallocate buffer for local symbol in expression.\n");
 					}
-					strncpy(tok->value.str, symtab->last_parent->label, parent_size);
+					strncpy(tok->value.str, symtab.last_parent->label, parent_size);
 					strncpy(&tok->value.str[parent_size], child, child_size + 1);
 					free(child);
 				}
@@ -213,7 +212,8 @@ void prepare_line(Line *line)
 #endif
 }
 
-NORETURN void fail(const char *fmt, ...)
+NORETURN void
+fail(const char *fmt, ...)
 {
 	struct context *cntxt;
 	va_list args;
