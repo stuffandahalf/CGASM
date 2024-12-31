@@ -60,3 +60,4 @@ dist
 xcode
 vs
 .DS_Store
+*.swp

@@ -157,7 +157,7 @@ enum arg_type {
 	ARG_TYPE_INDEX_CONSTANT
 };
 
-typedef struct {
+struct line_arg {
 	enum arg_type type;
 	/*enum arg_state state;*/
 	/*enum address_mode addr_mode;*/
@@ -175,7 +175,7 @@ typedef struct {
 			int8_t post_inc;
 		} indexed;
 	} val;
-} LineArg;
+};
 
 enum line_state {
 	LINE_STATE_CLEAR		= 0,
@@ -183,7 +183,8 @@ enum line_state {
 	LINE_STATE_MNEMONIC		= (1u << 1u),
 	LINE_STATE_SINGLE_QUOTE = (1u << 2u),
 	LINE_STATE_DOUBLE_QUOTE = (1u << 3u),
-	LINE_STATE_BRACKET		= (1u << 4u)
+	LINE_STATE_BRACKET		= (1u << 4u),
+	LINE_STATE_BOUNDED		= (LINE_STATE_SINGLE_QUOTE | LINE_STATE_DOUBLE_QUOTE | LINE_STATE_BRACKET)
 };
 
 enum address_post_op {
@@ -194,12 +195,12 @@ enum address_post_op {
 	POST_OP_DEC_DOUBLE
 };
 
+#define LINE_ARG_MAX 3
 struct line {
 	char *label;
 	char *mnemonic;
-	LineArg *argv;
+	struct line_arg argv[LINE_ARG_MAX];
 	size_t argc;
-	uint8_t arg_buf_size;
 	enum line_state line_state;
 	enum address_mode address_mode;
 	enum address_post_op addr_mode_post_op;

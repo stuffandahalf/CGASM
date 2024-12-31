@@ -236,9 +236,6 @@ assemble(struct context *cntxt)
 			l.line_state = LINE_STATE_CLEAR;
 			l.address_mode = ADDR_MODE_INVALID;
 			l.addr_mode_post_op = POST_OP_NONE;
-			l.arg_buf_size = 2;
-			/*l.argv = salloc(sizeof(char *) * l.arg_buf_size);*/
-			l.argv = salloc(sizeof(LineArg) * l.arg_buf_size);
 			l.argc = 0;
 
 			parse_line(&l, buffer);
@@ -267,8 +264,6 @@ assemble(struct context *cntxt)
 				evaluate_args(&l);
 				resolve_mnemonic_type(&l);
 			}
-
-			sfree(l.argv);
 		}
 		g_context->line_num++;
 	}
@@ -339,7 +334,7 @@ static void
 parse_line(struct line *l, char *buffer)
 {
 	register char *c;
-	LineArg *la = NULL;
+	struct line_arg *la = NULL;
 	enum arg_type arg_type = ARG_TYPE_UNPROCESSED;
 	for (c = buffer; *c != '\0'; c++) {
 		switch (*c) {
@@ -372,14 +367,14 @@ parse_line(struct line *l, char *buffer)
 			}
 			break;
 		case ']':
-			if (l->line_state & (FLAG(LINE_STATE_SINGLE_QUOTE) | FLAG(LINE_STATE_DOUBLE_QUOTE) | FLAG(LINE_STATE_BRACKET))) {
+			if (l->line_state & FLAG(LINE_STATE_BOUNDED)) {
 				break;
 			}
 			if (!(l->line_state & FLAG(LINE_STATE_BRACKET))) {
 				fail("']' requires '[' first.");
 			}
 		case '[':
-			if (l->line_state & (FLAG(LINE_STATE_SINGLE_QUOTE) | FLAG(LINE_STATE_DOUBLE_QUOTE) | FLAG(LINE_STATE_BRACKET))) {
+			if (l->line_state & FLAG(LINE_STATE_BOUNDED)) {
 				break;
 			}
 			l->line_state ^= FLAG(LINE_STATE_BRACKET);
@@ -387,7 +382,7 @@ parse_line(struct line *l, char *buffer)
 
 		case '\t':
 		case ' ':
-			if (l->line_state & (FLAG(LINE_STATE_SINGLE_QUOTE) | FLAG(LINE_STATE_DOUBLE_QUOTE) | FLAG(LINE_STATE_BRACKET))) {
+			if (l->line_state & FLAG(LINE_STATE_BOUNDED)) {
 				break;
 			}
 			if (c == buffer) {
@@ -408,20 +403,19 @@ parse_line(struct line *l, char *buffer)
 			/*if (c == buffer) {
 				break;
 			}*/
-			if (l->line_state & (FLAG(LINE_STATE_DOUBLE_QUOTE) | FLAG(LINE_STATE_SINGLE_QUOTE) | FLAG(LINE_STATE_BRACKET))) {
+			if (l->line_state & FLAG(LINE_STATE_BOUNDED)) {
 				break;
 			}
 			if (!(l->line_state & FLAG(LINE_STATE_MNEMONIC))) {
 				fail("No mnemonic preceding argument.\n");
 			}
-			if (l->argc == l->arg_buf_size) {
-				l->arg_buf_size += 2;
-				l->argv = srealloc(l->argv, sizeof(LineArg) * l->arg_buf_size);
+			if (l->argc == LINE_ARG_MAX) {
+				fail("Too many arguments provided. (max %d)\n", LINE_ARG_MAX);
 			}
-			/*LineArg **/la = &(l->argv[l->argc++]);
+			la = &(l->argv[l->argc++]);
 			la->type = arg_type;
-			/*la->state = ARG_STATE_CLEAR*/;
-			/*la->addr_mode = ADDR_MODE_INVALID;*/
+			//la->state = ARG_STATE_CLEAR;
+			//la->addr_mode = ADDR_MODE_INVALID;
 			la->val.str = buffer;
 			*c = '\0';
 			buffer = c;
@@ -440,11 +434,10 @@ parse_line(struct line *l, char *buffer)
 				buffer++;
 				l->line_state |= FLAG(LINE_STATE_MNEMONIC);
 			} else {
-				if (l->argc == l->arg_buf_size) {
-					l->arg_buf_size += 2;
-					l->argv = srealloc(l->argv, sizeof(LineArg) * l->arg_buf_size);
+				if (l->argc == LINE_ARG_MAX) {
+					fail("Too many arguments provided. (max %d)\n", LINE_ARG_MAX);
 				}
-				/*LineArg **/la = &(l->argv[l->argc++]);
+				la = &(l->argv[l->argc++]);
 				la->type = arg_type;
 				la->val.str = buffer;
 				arg_type = ARG_TYPE_UNPROCESSED;
@@ -454,7 +447,7 @@ parse_line(struct line *l, char *buffer)
 			buffer++;
 			break;
 		case ':':
-			if (l->line_state & (FLAG(LINE_STATE_SINGLE_QUOTE) | FLAG(LINE_STATE_DOUBLE_QUOTE) | FLAG(LINE_STATE_BRACKET))) {
+			if (l->line_state & FLAG(LINE_STATE_BOUNDED)) {
 				break;
 			} else if (l->line_state & FLAG(LINE_STATE_LABEL)) {
 				fail("Invalid label.\n");
@@ -563,7 +556,7 @@ prepare_line_motorola(struct line *l)
 	char *tmp_c;
 	char *unified_arg_str;
 	char *buffer_ptr;
-	LineArg *la;
+	struct line_arg *la;
 	char *arg_dup;
 	char *reg_name;
 	const Register *reg;
