@@ -12,6 +12,18 @@
 #include "pseudo.h"
 #include "arithmetic.h"
 
+/*
+ * For each input file
+ *   open new context
+ *   parse line into opcode + args
+ *   evaluate args
+ *   translate opcode + args -> binary
+ *   add binary to context
+ *   generate output file in specified format
+ * if link
+ *   combine all processed files into output format
+ */
+
 #define LINEBUFFERSIZE (256)
 char buffer[LINEBUFFERSIZE];
 
